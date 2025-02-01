@@ -1,9 +1,9 @@
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <WebServer.h>
+#include <HTTPClient.h>
 
 // Replace with your network credentials
-const char* ssid     = "iPhone 14";
+const char* ssid     = "YOUR_WIFI_SSID";
 const char* password = "bingchilling123";
 
 // Camera pin configuration for AI‑Thinker ESP32-CAM module
@@ -25,14 +25,8 @@ const char* password = "bingchilling123";
 #define HREF_GPIO_NUM    23
 #define PCLK_GPIO_NUM    22
 
-// Create a web server on port 80
-WebServer server(80);
-
-// Forward declarations
-void startCameraServer();
-void handleJPGStream();
-void handleRoot();
-void takePicture();
+// Backend API URL (IP address of your PC)
+const char* serverUrl = "http://100.66.5.25:5000/upload"; // Update with your machine's IP address
 
 void setup() {
   Serial.begin(115200);
@@ -90,91 +84,33 @@ void setup() {
   Serial.println("\nWiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-
-  // Start the web server for the camera
-  startCameraServer();
-  Serial.println("Camera server started");
 }
 
 void loop() {
-  server.handleClient();
+  captureAndSendImage();
+  delay(1000); // Adjust the delay as needed
 }
 
-// Serves the main HTML page that displays the camera stream
-// Modify the handleRoot function to include a link to capture a photo
-void handleRoot() {
-  String html = "<html>\
-  <head>\
-    <title>ESP32-CAM Photo Capture</title>\
-    <style>body { font-family: Arial; text-align: center; margin: 0; padding: 20px; }</style>\
-  </head>\
-  <body>\
-    <h1>ESP32-CAM Photo Capture</h1>\
-    <p><a href=\"/capture\">Take Photo</a></p>\
-    <p><a href=\"/stream\">View Live Stream</a></p>\
-  </body>\
-</html>";
-  server.send(200, "text/html", html);
-}
-
-// Handle taking a photo
-void handleCapturePhoto() {
-  camera_fb_t * fb = NULL;
-  
-  // Capture a photo
-  fb = esp_camera_fb_get();
+void captureAndSendImage() {
+  camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("Camera capture failed");
-    server.send(500, "text/plain", "Camera capture failed");
     return;
   }
-  
-  // Serve the image
-  server.sendHeader("Content-Type", "image/jpeg");
-  server.sendHeader("Content-Disposition", "inline; filename=capture.jpg");
-  server.sendHeader("Content-Length", String(fb->len));
-  server.send_P(200, "image/jpeg", (const char *)fb->buf, fb->len);
-  
-  // Return the frame buffer back to the driver for reuse
-  esp_camera_fb_return(fb);
-}
 
-// Handles the MJPEG streaming from the camera
-void handleJPGStream() {
-  WiFiClient client = server.client();
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-  server.sendContent(response);
+  Serial.println("Sending image to server...");
+  HTTPClient http;
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "image/jpeg");
 
-  while (1) {
-    camera_fb_t * fb = esp_camera_fb_get();
-    if (!fb) {
-      Serial.println("Camera capture failed");
-      break;
-    }
-
-    response = "--frame\r\n";
-    response += "Content-Type: image/jpeg\r\n\r\n";
-    server.sendContent(response);
-    client.write(fb->buf, fb->len);
-    server.sendContent("\r\n");
-    
-    esp_camera_fb_return(fb);
-
-    // If the client disconnects, exit the streaming loop
-    if (!client.connected()) {
-      break;
-    }
+  int httpResponseCode = http.POST(fb->buf, fb->len);
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Response: " + response);
+  } else {
+    Serial.printf("Error: %d\n", httpResponseCode);
   }
-}
+  http.end();
 
-// Set up the URL endpoints and start the server
-void startCameraServer() {
-  server.on("/", HTTP_GET, handleRoot);
-  server.on("/stream", HTTP_GET, handleJPGStream);
-  server.on("/capture", HTTP_GET, handleCapturePhoto); 
-  server.onNotFound([]() {
-    server.send(404, "text/plain", "Not Found");
-  });
-  server.begin();
+  esp_camera_fb_return(fb);
 }

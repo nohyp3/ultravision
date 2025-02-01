@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, Response, jsonify
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -12,6 +12,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 app = Flask(__name__)
 
+# Store the latest frame
+latest_frame = None
+
 def process_image_with_gemini(image_data):
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
@@ -21,6 +24,30 @@ def process_image_with_gemini(image_data):
         ]
     )
     return response.text
+
+@app.route('/upload', methods=['POST'])
+def upload_image():
+    global latest_frame
+    if 'image' not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    image_file = request.files['image']
+    latest_frame = image_file.read()
+    return jsonify({"status": "Image received"}), 200
+
+@app.route('/stream')
+def stream():
+    def generate():
+        global latest_frame
+        while True:
+            if latest_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_frame + b'\r\n\r\n')
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/')
+def index():
+    return '<html><body><h1>ESP32 Camera Stream</h1><img src="/stream" /></body></html>'
 
 @app.route('/process-image', methods=['POST'])
 def process_image():
