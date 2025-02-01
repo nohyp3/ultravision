@@ -27,7 +27,7 @@ def process_image_with_gemini(image_data):
     )
     return response.text
 
-def voiceModule(description):
+def voice_module(description):
     engine = pyttsx3.init()
     voices = engine.getProperty('voices')
     engine.setProperty('voice', voices[1].id)
@@ -89,7 +89,7 @@ def process_image():
 
     try:
         description = process_image_with_gemini(image_data)
-        voiceModule(description)
+        voice_module(description)
         return jsonify({"description": description}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
