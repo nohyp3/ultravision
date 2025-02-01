@@ -1,11 +1,12 @@
 import google.generativeai as genai
+from dotenv import load_dotenv
+import os
 
-
-
+load_dotenv()
 
 bool = False
 while bool == False:
-    filename = input("input image file name:")
+    filename = "street_sign.jpg"
     try:
         with open(filename, "rb") as image_file:
             image_data = image_file.read()
@@ -15,7 +16,8 @@ while bool == False:
 
 # Replace with your image path
 
-genai.configure(api_key="token")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 response = model.generate_content(
     [
