@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 
 // Replace with your network credentials
-const char* ssid     = "YOUR_WIFI_SSID";
+const char* ssid     = "iPhone 14";
 const char* password = "bingchilling123";
 
 // Camera pin configuration for AI‑Thinker ESP32-CAM module
@@ -27,6 +27,10 @@ const char* password = "bingchilling123";
 
 // Backend API URL (IP address of your PC)
 const char* serverUrl = "http://100.66.5.25:5000/upload"; // Update with your machine's IP address
+const char* processUrl = "http://100.66.5.25:5000/process-image"; // Update with your machine's IP address
+
+// Pin for button input
+#define BUTTON_PIN 12
 
 void setup() {
   Serial.begin(115200);
@@ -84,14 +88,23 @@ void setup() {
   Serial.println("\nWiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
 void loop() {
-  captureAndSendImage();
-  delay(1000); // Adjust the delay as needed
+  captureAndSendImage(serverUrl);
+
+  if (digitalRead(BUTTON_PIN) == LOW) { // Button pressed
+    Serial.println("Button Pressed. Processing image...");
+    captureAndSendImage(processUrl);
+    delay(1000); // Debounce delay
+  }
+
+  delay(100); // Adjust the delay as needed
 }
 
-void captureAndSendImage() {
+void captureAndSendImage(const char* url) {
   camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("Camera capture failed");
@@ -100,7 +113,7 @@ void captureAndSendImage() {
 
   Serial.println("Sending image to server...");
   HTTPClient http;
-  http.begin(serverUrl);
+  http.begin(url);
   http.addHeader("Content-Type", "image/jpeg");
 
   int httpResponseCode = http.POST(fb->buf, fb->len);
