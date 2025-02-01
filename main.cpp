@@ -7,7 +7,7 @@ const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
 // Backend API URL
-const char* serverUrl = "https://your-backend.com/process-image";
+const char* serverUrl = "http://100.66.5.25:5000/process-image";
 
 // Pin for button input
 #define BUTTON_PIN 12

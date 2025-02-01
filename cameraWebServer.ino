@@ -32,6 +32,7 @@ WebServer server(80);
 void startCameraServer();
 void handleJPGStream();
 void handleRoot();
+void takePicture();
 
 void setup() {
   Serial.begin(115200);
@@ -100,18 +101,42 @@ void loop() {
 }
 
 // Serves the main HTML page that displays the camera stream
+// Modify the handleRoot function to include a link to capture a photo
 void handleRoot() {
   String html = "<html>\
   <head>\
-    <title>ESP32-CAM Live Stream</title>\
-    <style>body { font-family: Arial; text-align: center; margin: 0; padding: 0; }</style>\
+    <title>ESP32-CAM Photo Capture</title>\
+    <style>body { font-family: Arial; text-align: center; margin: 0; padding: 20px; }</style>\
   </head>\
   <body>\
-    <h1>ESP32-CAM Live Stream</h1>\
-    <img src=\"/stream\" style=\"width:100%; max-width:800px;\"/>\
+    <h1>ESP32-CAM Photo Capture</h1>\
+    <p><a href=\"/capture\">Take Photo</a></p>\
+    <p><a href=\"/stream\">View Live Stream</a></p>\
   </body>\
 </html>";
   server.send(200, "text/html", html);
+}
+
+// Handle taking a photo
+void handleCapturePhoto() {
+  camera_fb_t * fb = NULL;
+  
+  // Capture a photo
+  fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("Camera capture failed");
+    server.send(500, "text/plain", "Camera capture failed");
+    return;
+  }
+  
+  // Serve the image
+  server.sendHeader("Content-Type", "image/jpeg");
+  server.sendHeader("Content-Disposition", "inline; filename=capture.jpg");
+  server.sendHeader("Content-Length", String(fb->len));
+  server.send_P(200, "image/jpeg", (const char *)fb->buf, fb->len);
+  
+  // Return the frame buffer back to the driver for reuse
+  esp_camera_fb_return(fb);
 }
 
 // Handles the MJPEG streaming from the camera
@@ -147,6 +172,7 @@ void handleJPGStream() {
 void startCameraServer() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/stream", HTTP_GET, handleJPGStream);
+  server.on("/capture", HTTP_GET, handleCapturePhoto); 
   server.onNotFound([]() {
     server.send(404, "text/plain", "Not Found");
   });
