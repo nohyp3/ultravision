@@ -2,6 +2,20 @@ import os
 from flask import Flask, request, jsonify
 import google.generativeai as genai
 from dotenv import load_dotenv
+import os
+import pyttsx3
+
+bool = False
+while bool == False:
+    filename = "dog.jpg"
+    try:
+        with open(filename, "rb") as image_file:
+            image_data = image_file.read()
+            bool = True
+    except:
+        print ("file not found. try again")
+
+# Replace with your image path
 
 # Load environment variables from .env file
 load_dotenv()
@@ -9,6 +23,25 @@ load_dotenv()
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
+
+
+def voiceModule (description):
+
+    engine = pyttsx3.init()
+
+    voices = engine.getProperty('voices')
+
+    engine.setProperty('voice', voices[1].id)
+    engine.setProperty('rate', 210)
+    rate = engine.getProperty('rate')   # getting details of current speaking rate
+    engine.say(description.text)
+    engine.runAndWait()
+    engine.save_to_file(description.text, 'textToVoice.mp3')
+
+
+#engine.say(response.text)
+
+
 
 app = Flask(__name__)
 
@@ -32,6 +65,8 @@ def process_image():
 
     try:
         description = process_image_with_gemini(image_data)
+        voiceModule(description)
+
         return jsonify({"description": description}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
