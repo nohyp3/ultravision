@@ -1,21 +1,8 @@
 import os
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, send_file
 import google.generativeai as genai
 from dotenv import load_dotenv
-import os
 import pyttsx3
-
-bool = False
-while bool == False:
-    filename = "dog.jpg"
-    try:
-        with open(filename, "rb") as image_file:
-            image_data = image_file.read()
-            bool = True
-    except:
-        print ("file not found. try again")
-
-# Replace with your image path
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,29 +11,11 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
-
-def voiceModule (description):
-
-    engine = pyttsx3.init()
-
-    voices = engine.getProperty('voices')
-
-    engine.setProperty('voice', voices[1].id)
-    engine.setProperty('rate', 210)
-    rate = engine.getProperty('rate')   # getting details of current speaking rate
-    engine.say(description.text)
-    engine.runAndWait()
-    engine.save_to_file(description.text, 'textToVoice.mp3')
-
-
-#engine.say(response.text)
-
-
-
 app = Flask(__name__)
 
 # Store the latest frame
 latest_frame = None
+mp3_file_path = "textToVoice.mp3"
 
 def process_image_with_gemini(image_data):
     model = genai.GenerativeModel("gemini-1.5-flash")
@@ -57,6 +26,15 @@ def process_image_with_gemini(image_data):
         ]
     )
     return response.text
+
+def voiceModule(description):
+    engine = pyttsx3.init()
+    voices = engine.getProperty('voices')
+    engine.setProperty('voice', voices[1].id)
+    engine.setProperty('rate', 210)
+    engine.say(description)
+    engine.runAndWait()
+    engine.save_to_file(description, mp3_file_path)
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -80,7 +58,26 @@ def stream():
 
 @app.route('/')
 def index():
-    return '<html><body><h1>ESP32 Camera Stream</h1><img src="/stream" /></body></html>'
+    return '''
+    <html>
+    <body>
+        <h1>ESP32 Camera Stream</h1>
+        <img src="/stream" />
+        <audio id="audio" controls></audio>
+        <script>
+            function playAudio() {
+                var audio = document.getElementById("audio");
+                audio.src = "/audio";
+                audio.play();
+            }
+        </script>
+    </body>
+    </html>
+    '''
+
+@app.route('/audio')
+def audio():
+    return send_file(mp3_file_path, mimetype='audio/mpeg')
 
 @app.route('/process-image', methods=['POST'])
 def process_image():
@@ -93,7 +90,6 @@ def process_image():
     try:
         description = process_image_with_gemini(image_data)
         voiceModule(description)
-
         return jsonify({"description": description}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
