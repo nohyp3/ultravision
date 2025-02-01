@@ -21,7 +21,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 response = model.generate_content(
     [
-        "Describe the image to a blind person for safety. Avoid unneccessary details. This needs to be a maximum of 20 words.",
+        "Describe the image to a blind person for safety, from their perspective. Be specific with directions and the distance for where objects are. Avoid unneccessary details. This needs to be a maximum of 20 words.",
         {"mime_type": "image/jpeg", "data": image_data
     }
     ]
