@@ -1,6 +1,7 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <Base64.h>
 
 // Replace with your network credentials
 const char* ssid     = "iPhone 14";
@@ -26,8 +27,8 @@ const char* password = "bingchilling123";
 #define PCLK_GPIO_NUM    22
 
 // Backend API URL (IP address of your PC)
-const char* serverUrl = "http://100.66.5.25:5000/upload"; // Update with your machine's IP address
-const char* processUrl = "http://100.66.5.25:5000/process-image"; // Update with your machine's IP address
+const char* serverUrl = "http://172.20.10.6:2000/upload"; // Update with your machine's IP address
+const char* processUrl = "http://172.20.10.6:2000/process-image"; // Update with your machine's IP address
 
 // Pin for button input
 #define BUTTON_PIN 12
@@ -95,7 +96,7 @@ void setup() {
 void loop() {
   captureAndSendImage(serverUrl);
 
-  if (digitalRead(BUTTON_PIN) == LOW) { // Button pressed
+  if (digitalRead(BUTTON_PIN) == HIGH) { // Button pressed
     Serial.println("Button Pressed. Processing image...");
     captureAndSendImage(processUrl);
     delay(1000); // Debounce delay
@@ -111,19 +112,33 @@ void captureAndSendImage(const char* url) {
     return;
   }
 
-  Serial.println("Sending image to server...");
+  // Encode the image to Base64
+  String encoded = base64::encode(fb->buf, fb->len);
+  
+  WiFiClient client;
   HTTPClient http;
-  http.begin(url);
-  http.addHeader("Content-Type", "image/jpeg");
-
-  int httpResponseCode = http.POST(fb->buf, fb->len);
-  if (httpResponseCode > 0) {
-    String response = http.getString();
-    Serial.println("Response: " + response);
+  
+  if (http.begin(client, url)) {
+    http.addHeader("Content-Type", "application/json");
+    
+    // Create JSON payload
+    String payload = "{\"image\":\"data:image/jpeg;base64," + encoded + "\"}";
+    
+    int httpResponseCode = http.POST(payload);
+    
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("HTTP Response code: " + String(httpResponseCode));
+      Serial.println("Server response: " + response);
+    } else {
+      Serial.print("Error code: ");
+      Serial.println(httpResponseCode);
+    }
+    
+    http.end();
   } else {
-    Serial.printf("Error: %d\n", httpResponseCode);
+    Serial.println("HTTP connection failed");
   }
-  http.end();
 
   esp_camera_fb_return(fb);
 }
