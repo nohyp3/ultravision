@@ -7,7 +7,7 @@ import base64
 
 # Configure Gemini API
 #GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key="AIzaSyAn-jNSjSLioNp4ykAry6QTIypZzKPUb_M")
+genai.configure(api_key="GEMINI_API_KEY")
 
 mp3_file_path = "assets/textToVoice.mp3"
 
